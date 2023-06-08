@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blank Map</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  </head>
+  <body>
+    <div id="map" style="height: 400px"></div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+      const map = L.map("map").setView([0, 0], 2);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      //
+      //initialize marker data array
+      let markerData = [];
+      //
+      function showError(error) {
+        if (error.code === 1) {
+          alert("Please allow geolocation access");
+        } else {
+          alert("cannot get current location");
+        }
+      }
+      //
+      //Geolocation options
+      //
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 2000,
+      };
+      //
+      //Get current position and show marker
+      //
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          map.setView([latitude, longitude], 13);
+
+          const marker = L.marker([latitude, longitude]).addTo(map);
+          marker.bindPopup("Hello! This is your current location.").openPopup();
+        },
+        (error) => {
+          if (error.code === 1) {
+            alert("Please allow geolocation access");
+          } else {
+            alert("Cannot get current location");
+          }
+        },
+        options
+      );
+      // click function for adding a flag marker
+      map.on("contextmenu", (e) => {
+        const { lat, lng } = e.latlng;
+        // Check if a marker already exists at the clicked location
+        const existingMarker = markerData.find(
+          (marker) => marker.lat === lat && marker.lng === lng
+        );
+
+        if (existingMarker) {
+          deleteMarkerFromMap(existingMarker);
+        } else {
+          addMarkerToMap(lat, lng);
+        }
+      });
+      // Function to add a marker to the map
+      function addMarkerToMap(lat, lng) {
+        const flagIcon = L.icon({
+          iconUrl: "flag.png",
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+        });
+        const flagMarker = L.marker([lat, lng], { icon: flagIcon }).addTo(map);
+        flagMarker.bindPopup(createPopupContent(lat, lng)).openPopup();
+
+        // Store the marker data in the markerData array
+        markerData.push({ lat, lng });
+        // Update the markerData array in local storage
+        localStorage.setItem("markerData", JSON.stringify(markerData));
+      }
+      // Function to delete a marker from the map and markerData array
+      function deleteMarkerFromMap(marker) {
+        const { lat, lng } = marker;
+        const index = markerData.findIndex(
+          (m) => m.lat === lat && m.lng === lng
+        );
+        if (index !== -1) {
+          map.eachLayer((layer) => {
+            if (layer instanceof L.Marker) {
+              const { lat, lng } = layer.getLatLng();
+              if (lat === marker.lat && lng === marker.lng) {
+                map.removeLayer(layer);
+              }
+            }
+          });
+          // Remove the marker data from the markerData array
+          markerData.splice(index, 1);
+          // Update the markerData array in local storage
+          localStorage.setItem("markerData", JSON.stringify(markerData));
+        }
+      }
+
+      function createPopupContent(lat, lng) {
+        return `
+          <div>
+            <p>Flag placed at coordinates (${lat.toFixed(2)}, ${lng.toFixed(
+          2
+        )})</p>
+            <textarea id="comment" rows="4" cols="30" placeholder="Enter your comment..."></textarea>
+            <br>
+            <button onclick="saveComment(${lat}, ${lng})">Save</button>
+          </div>
+        `;
+      }
+
+      function saveComment(lat, lng) {
+        const comment = document.getElementById("comment").value;
+        const marker = markerData.find(
+          (marker) => marker.lat === lat && marker.lng === lng
+        );
+        if (marker) {
+          marker.comment = comment;
+          localStorage.setItem("markerData", JSON.stringify(markerData));
+          alert("Comment saved!");
+        }
+      }
+
+      // Function to add existing markers to the map
+      function addMarkersToMap() {
+        markerData.forEach((marker) => {
+          const { lat, lng } = marker;
+          const flagIcon = L.icon({
+            iconUrl: "flag.png",
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+          });
+          const flagMarker = L.marker([lat, lng], { icon: flagIcon }).addTo(
+            map
+          );
+          flagMarker.bindPopup(createPopupContent(lat, lng)).openPopup();
+        });
+      }
+
+      // Retrieve marker data from local storage on page load
+      const storedMarkerData = localStorage.getItem("markerData");
+      if (storedMarkerData) {
+        markerData = JSON.parse(storedMarkerData);
+        addMarkersToMap(); // Corrected function call
+      }
+    </script>
+  </body>
+</html>
